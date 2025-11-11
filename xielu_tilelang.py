@@ -5,7 +5,7 @@ from tvm import DataType
 import tilelang.language as T
 import tilelang.language.math_intrinsics as M
 
-@tilelang.jit(out_idx=[1], pass_configs={tilelang.PassConfigKey.TL_ENABLE_FAST_MATH: True})
+@tilelang.jit(out_idx=[1], pass_configs={tilelang.PassConfigKey.TL_ENABLE_FAST_MATH: True}, compile_options=["-lineinfo", "--ptxas-options=-v"])
 def tilelang_xielu_forward(N: int, N_CHUNKS: int = 16, threads: int = 256, dtype: str = "bfloat16", activation_dtype: str = "float32"):
     VECTOR_SIZE = 128 // DataType(dtype).bits
     CHUNK = threads * VECTOR_SIZE
@@ -33,7 +33,7 @@ def tilelang_xielu_forward(N: int, N_CHUNKS: int = 16, threads: int = 256, dtype
 
     return main
 
-@tilelang.jit(out_idx=[], pass_configs={tilelang.PassConfigKey.TL_ENABLE_FAST_MATH: True})
+@tilelang.jit(out_idx=[], pass_configs={tilelang.PassConfigKey.TL_ENABLE_FAST_MATH: True}, compile_options=["-lineinfo", "--ptxas-options=-v"])
 def tilelang_xielu_backward(N: int, N_CHUNKS: int = 16, threads: int = 256, dtype: str = "bfloat16", activation_dtype: str = "float32"):
     VECTOR_SIZE = 128 // DataType(dtype).bits
     CHUNK = threads * VECTOR_SIZE
@@ -112,3 +112,16 @@ def setup_context(ctx: torch.autograd.function.FunctionCtx, inputs, output):
     ctx.s_a_n = s_a_n
 
 xielu.register_autograd(xielu_backward, setup_context=setup_context)
+
+class xIELU(torch.nn.Module):
+    def __init__(self, alpha_p: float = 0.8, alpha_n: float = 0.2, beta: float = 0.5, eps: float = 1e-6, device: torch.device = None, dtype: torch.dtype = None, **kwargs):
+        super().__init__()
+
+        self.eps = eps
+        self.beta = beta
+        with torch.no_grad():
+            self.alpha_p = torch.nn.Parameter(torch.log(torch.exp(torch.tensor(alpha_p, device=device, dtype=dtype)) - 1.0).unsqueeze(0))
+            self.alpha_n = torch.nn.Parameter(torch.log(torch.exp(torch.tensor(alpha_n - self.beta, device=device, dtype=dtype)) - 1.0).unsqueeze(0)).detach()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return xielu(x, self.alpha_p, self.alpha_n, self.beta, self.eps)
