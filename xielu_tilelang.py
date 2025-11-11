@@ -5,7 +5,7 @@ from tvm import DataType
 import tilelang.language as T
 import tilelang.language.math_intrinsics as M
 
-@tilelang.jit(out_idx=[1], pass_configs={tilelang.PassConfigKey.TL_ENABLE_FAST_MATH: True}, compile_options=["-lineinfo", "--ptxas-options=-v"])
+@tilelang.jit(out_idx=[1], pass_configs={tilelang.PassConfigKey.TL_ENABLE_FAST_MATH: True}, compile_flags=["-lineinfo"])
 def tilelang_xielu_forward(N: int, N_CHUNKS: int = 16, threads: int = 256, dtype: str = "bfloat16", activation_dtype: str = "float32"):
     VECTOR_SIZE = 128 // DataType(dtype).bits
     CHUNK = threads * VECTOR_SIZE
@@ -33,7 +33,7 @@ def tilelang_xielu_forward(N: int, N_CHUNKS: int = 16, threads: int = 256, dtype
 
     return main
 
-@tilelang.jit(out_idx=[], pass_configs={tilelang.PassConfigKey.TL_ENABLE_FAST_MATH: True}, compile_options=["-lineinfo", "--ptxas-options=-v"])
+@tilelang.jit(out_idx=[], pass_configs={tilelang.PassConfigKey.TL_ENABLE_FAST_MATH: True}, compile_flags=["-lineinfo"])
 def tilelang_xielu_backward(N: int, N_CHUNKS: int = 16, threads: int = 256, dtype: str = "bfloat16", activation_dtype: str = "float32"):
     VECTOR_SIZE = 128 // DataType(dtype).bits
     CHUNK = threads * VECTOR_SIZE
@@ -83,15 +83,21 @@ def tilelang_xielu_backward(N: int, N_CHUNKS: int = 16, threads: int = 256, dtyp
 
 
 @torch.library.custom_op("swissai::xielu", mutates_args=())
-def xielu(x: torch.Tensor, a_p: torch.Tensor, a_n: torch.Tensor, beta: float, eps: float) -> Tuple[torch.Tensor, float, float]:
+def xielu(x: torch.Tensor, a_p: torch.Tensor, a_n: torch.Tensor, beta: float, eps: float) -> torch.Tensor:
     shape = x.shape
     s_a_p = torch.nn.functional.softplus(a_p).item()
     s_a_n = torch.nn.functional.softplus(a_n).item()
     kernel = tilelang_xielu_forward(x.numel(), N_CHUNKS=4, threads=256, dtype=str(x.dtype).split(".")[-1])
-    return kernel(x.contiguous().view(-1), s_a_p, s_a_n, beta, eps).view(shape), s_a_p, s_a_n
+    return kernel(x.contiguous().view(-1), s_a_p, s_a_n, beta, eps).view(shape)
+
+@xielu.register_fake
+def _(x: torch.Tensor, *_) -> torch.Tensor:
+    return x
 
 def xielu_backward(ctx: torch.autograd.function.FunctionCtx, grad_output: torch.Tensor, *_) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, None, None]:
     x, a_p, a_n = ctx.saved_tensors
+    s_a_p = torch.nn.functional.softplus(a_p).item()
+    s_a_n = torch.nn.functional.softplus(a_n).item()
     ds_a_p = torch.nn.functional.sigmoid(a_p).item()
     ds_a_n = torch.nn.functional.sigmoid(a_n).item()
 
@@ -99,7 +105,7 @@ def xielu_backward(ctx: torch.autograd.function.FunctionCtx, grad_output: torch.
     da_p = torch.tensor((0.0,), device="cuda")
     da_n = torch.tensor((0.0,), device="cuda")
     kernel = tilelang_xielu_backward(x.numel(), N_CHUNKS=16, threads=256, dtype=str(x.dtype).split(".")[-1])
-    kernel(grad_output.contiguous().view(-1), x.contiguous().view(-1), gi.contiguous().view(-1), da_p, da_n, ctx.s_a_p, ds_a_p, ctx.s_a_n, ds_a_n, ctx.beta, ctx.eps)
+    kernel(grad_output.contiguous().view(-1), x.contiguous().view(-1), gi.contiguous().view(-1), da_p, da_n, s_a_p, ds_a_p, s_a_n, ds_a_n, ctx.beta, ctx.eps)
     return gi.view(x.shape), da_p, da_n, None, None
 
 def setup_context(ctx: torch.autograd.function.FunctionCtx, inputs, output):
@@ -107,9 +113,6 @@ def setup_context(ctx: torch.autograd.function.FunctionCtx, inputs, output):
     ctx.save_for_backward(x, a_p, a_n)
     ctx.beta = beta
     ctx.eps = eps
-    _, s_a_p, s_a_n = output
-    ctx.s_a_p = s_a_p
-    ctx.s_a_n = s_a_n
 
 xielu.register_autograd(xielu_backward, setup_context=setup_context)
 
