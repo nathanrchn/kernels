@@ -104,7 +104,6 @@ __global__ void xielu_backward_kernel(
         *reinterpret_cast<uint4*>(gi + offset) = gi_data;
     }
 
-    // Warp reduction
     #pragma unroll
     for (int i = 16; i > 0; i >>= 1) {
         galpha_p_local += __shfl_down_sync(0xffffffff, galpha_p_local, i, 32);
