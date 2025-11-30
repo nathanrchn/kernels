@@ -1,9 +1,0 @@
-[build-system]
-requires = ["setuptools", "wheel", "torch"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "xielu"
-version = "0.1.0"
-description = "XiELU"
-dependencies = ["torch"]
