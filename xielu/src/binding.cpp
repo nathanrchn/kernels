@@ -51,13 +51,8 @@ at::Tensor xielu_autograd(const at::Tensor &x, const at::Tensor &alpha_p, const 
     return XieLUFunction::apply(x, alpha_p, alpha_n, beta, eps);
 }
 
-TORCH_LIBRARY(swissai, m) {
-    m.def("xielu_forward(Tensor x, Tensor alpha_p, Tensor alpha_n, float beta, float eps) -> Tensor");
-    m.impl("xielu_forward", &xielu_forward);
-
-    m.def("xielu_backward(Tensor x, Tensor go, Tensor alpha_p, Tensor alpha_n, float beta, float eps) -> (Tensor, Tensor, Tensor)");
-    m.impl("xielu_backward", &xielu_backward);
-
-    m.def("xielu(Tensor x, Tensor alpha_p, Tensor alpha_n, float beta, float eps) -> Tensor");
-    m.impl("xielu", TORCH_FN(xielu_autograd));
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("xielu", &xielu_autograd);
+    m.def("xielu_forward", &xielu_forward);
+    m.def("xielu_backward", &xielu_backward);
 }
