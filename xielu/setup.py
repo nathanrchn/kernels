@@ -2,10 +2,10 @@ from setuptools import setup
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 setup(
-    name="swissai",
+    name="xielu",
     ext_modules=[
         CUDAExtension(
-            name="swissai",
+            name="xielu",
             sources=["src/binding.cpp", "src/xielu.cu"],
             extra_compile_args={
                 "cxx": ["-O3"],
