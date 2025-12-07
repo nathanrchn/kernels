@@ -7,6 +7,13 @@ import xielu
 def _(x, alpha_p, alpha_n, beta, eps):
     return torch.empty_like(x)
 
+@torch.library.register_fake("xielu::backward")
+def _(x, go, alpha_p, alpha_n, beta, eps):
+    gi = torch.empty_like(x)
+    galpha_p = torch.empty(1, dtype=torch.float32, device=x.device)
+    galpha_n = torch.empty(1, dtype=torch.float32, device=x.device)
+    return gi, galpha_p, galpha_n
+
 def backward(ctx, grad_output):
     x, alpha_p, alpha_n = ctx.saved_tensors
     beta, eps = ctx.beta, ctx.eps
