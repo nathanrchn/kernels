@@ -5,12 +5,14 @@ import _xielu  # noqa: F401
 
 
 @torch.library.register_fake("xielu::forward")
-def _(x: Tensor, *_) -> Tensor:
+def _(x: Tensor, alpha_p: Tensor, alpha_n: Tensor, beta: float, eps: float) -> Tensor:
     return torch.empty_like(x)
 
 
 @torch.library.register_fake("xielu::backward")
-def _(x: Tensor, *_) -> tuple[Tensor, Tensor, Tensor]:
+def _(
+    x: Tensor, go: Tensor, alpha_p: Tensor, alpha_n: Tensor, beta: float, eps: float
+) -> tuple[Tensor, Tensor, Tensor]:
     return (
         torch.empty_like(x),
         torch.empty(1, dtype=torch.float32, device=x.device),
