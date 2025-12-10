@@ -14,11 +14,9 @@ setup(
                     "--use_fast_math",
                     "--ptxas-options=-v",
                     "-lineinfo",
-                ]
-            }
+                ],
+            },
         )
     ],
-    cmdclass={
-        "build_ext": BuildExtension
-    }
+    cmdclass={"build_ext": BuildExtension},
 )
