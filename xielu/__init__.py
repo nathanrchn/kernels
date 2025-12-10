@@ -1,6 +1,8 @@
 import torch
 from torch import Tensor
 
+import _xielu  # noqa: F401
+
 
 @torch.library.register_fake("xielu::forward")
 def _(x: Tensor, *_) -> Tensor:
