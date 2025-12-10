@@ -1,34 +1,35 @@
 import torch
-import torch.library
+from torch import Tensor
 
-import xielu
+from . import _C  # noqa: F401
+
 
 @torch.library.register_fake("xielu::forward")
-def _(x, alpha_p, alpha_n, beta, eps):
+def _(x: Tensor, *_) -> Tensor:
     return torch.empty_like(x)
 
+
 @torch.library.register_fake("xielu::backward")
-def _(x, go, alpha_p, alpha_n, beta, eps):
-    gi = torch.empty_like(x)
-    galpha_p = torch.empty(1, dtype=torch.float32, device=x.device)
-    galpha_n = torch.empty(1, dtype=torch.float32, device=x.device)
-    return gi, galpha_p, galpha_n
+def _(x: Tensor, *_) -> tuple[Tensor, Tensor, Tensor]:
+    return torch.empty_like(x), torch.empty(1, dtype=torch.float32, device=x.device), torch.empty(1, dtype=torch.float32, device=x.device)
 
-def backward(ctx, grad_output):
-    x, alpha_p, alpha_n = ctx.saved_tensors
-    beta, eps = ctx.beta, ctx.eps
-    go = grad_output.contiguous()
-    x_contig = x.contiguous()
-    gi, galpha_p, galpha_n = torch.ops.xielu.backward(x_contig, go, alpha_p, alpha_n, beta, eps)
-    return gi, galpha_p.to(alpha_p.dtype), galpha_n.to(alpha_n.dtype), None, None
 
-def setup_context(ctx, inputs, output):
-    x, alpha_p, alpha_n, beta, eps = inputs
-    ctx.save_for_backward(x, alpha_p, alpha_n)
-    ctx.beta = beta
-    ctx.eps = eps
+class XiELUFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: Tensor, alpha_p: Tensor, alpha_n: Tensor, beta: float, eps: float) -> Tensor:
+        ctx.save_for_backward(x, alpha_p, alpha_n)
+        ctx.beta = beta
+        ctx.eps = eps
+        return torch.ops.xielu.forward(x, alpha_p, alpha_n, beta, eps)
 
-torch.library.register_autograd("xielu::forward", backward, setup_context=setup_context)
+    @staticmethod
+    def backward(ctx, grad_out: Tensor):
+        x, alpha_p, alpha_n = ctx.saved_tensors
+        go = grad_out.contiguous() if not grad_out.is_contiguous() else grad_out
+        x = x.contiguous() if not x.is_contiguous() else x
+        gi, galpha_p, galpha_n = torch.ops.xielu.backward(x, go, alpha_p, alpha_n, ctx.beta, ctx.eps)
+        return gi, galpha_p, galpha_n, None, None
 
-def xielu(x: torch.Tensor, alpha_p: torch.Tensor, alpha_n: torch.Tensor, beta: float, eps: float) -> torch.Tensor:
-    return torch.ops.xielu.forward(x, alpha_p, alpha_n, beta, eps)
+
+def xielu(x: Tensor, alpha_p: Tensor, alpha_n: Tensor, beta: float = 1.0, eps: float = -10.0) -> Tensor:
+    return XiELUFunction.apply(x, alpha_p, alpha_n, beta, eps)
