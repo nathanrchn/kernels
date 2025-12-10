@@ -219,5 +219,5 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> xielu_backward(const at::Tensor &
     );
     C10_CUDA_CHECK(cudaGetLastError());
     
-    return std::make_tuple(gi, galpha_p_tensor, galpha_n_tensor);
+    return std::make_tuple(gi, galpha_p_tensor.to(at::kBFloat16), galpha_n_tensor.to(at::kBFloat16));
 }
