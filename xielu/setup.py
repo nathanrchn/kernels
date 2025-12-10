@@ -5,7 +5,7 @@ setup(
     name="xielu",
     ext_modules=[
         CUDAExtension(
-            name="xielu._C",
+            name="xielu",
             sources=["src/binding.cpp", "src/xielu.cu"],
             extra_compile_args={
                 "cxx": ["-O3"],
