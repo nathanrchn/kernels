@@ -40,6 +40,6 @@ class XiELUFunction(torch.autograd.Function):
 
 
 def xielu(
-    x: Tensor, alpha_p: Tensor, alpha_n: Tensor, beta: float = 1.0, eps: float = -10.0
+    x: Tensor, alpha_p: Tensor, alpha_n: Tensor, beta: float = 0.5, eps: float = -1e-6
 ) -> Tensor:
     return XiELUFunction.apply(x, alpha_p, alpha_n, beta, eps)
