@@ -13,8 +13,8 @@ def _(x: Tensor, *_) -> Tensor:
 def _(x: Tensor, *_) -> tuple[Tensor, Tensor, Tensor]:
     return (
         torch.empty_like(x),
-        torch.empty(1, dtype=torch.float32, device=x.device),
-        torch.empty(1, dtype=torch.float32, device=x.device),
+        torch.empty(1, dtype=torch.bfloat16, device=x.device),
+        torch.empty(1, dtype=torch.bfloat16, device=x.device),
     )
 
 
