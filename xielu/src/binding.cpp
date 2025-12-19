@@ -47,12 +47,10 @@ public:
     }
 };
 
-// Main entry point - calls autograd directly
 Tensor xielu(const Tensor& x, const Tensor& alpha_p, const Tensor& alpha_n, double beta, double eps) {
     return XIELUAutograd::apply(x, alpha_p, alpha_n, beta, eps);
 }
 
-// Meta implementations for torch.compile
 Tensor xielu_forward_meta(
     const Tensor& x,
     const Tensor& alpha_p,

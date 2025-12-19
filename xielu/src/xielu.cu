@@ -39,7 +39,6 @@ __global__ void xielu_forward_kernel(
     const float eps,
     const int64_t num_vectors
 ) {
-    // Each thread loads and computes softplus - no sync barrier needed
     float raw_ap = __bfloat162float(__ldg(alpha_p_ptr));
     float raw_an = __bfloat162float(__ldg(alpha_n_ptr));
     float s_a_p = softplus_device(raw_ap);
@@ -88,7 +87,6 @@ __global__ void xielu_backward_kernel(
     const float eps,
     const int64_t num_vectors
 ) {
-    // Each thread loads and computes softplus - no sync barrier needed
     float raw_ap = __bfloat162float(__ldg(alpha_p_ptr));
     float raw_an = __bfloat162float(__ldg(alpha_n_ptr));
     float s_a_p = softplus_device(raw_ap);
@@ -140,7 +138,6 @@ __global__ void xielu_backward_kernel(
         *reinterpret_cast<uint4*>(gi + offset) = gi_data;
     }
 
-    // Warp reduction
     #pragma unroll
     for (int i = 16; i > 0; i >>= 1) {
         galpha_p_local += __shfl_down_sync(0xffffffff, galpha_p_local, i);
@@ -171,7 +168,6 @@ at::Tensor xielu_forward(const at::Tensor &x, const at::Tensor &alpha_p, const a
     int64_t N = x.numel();
     TORCH_CHECK(N % MIN_ALIGNMENT == 0, "Input size must be divisible by ", MIN_ALIGNMENT);
 
-    // Get stream and create guard
     const auto stream = c10::cuda::getCurrentCUDAStream(x.get_device());
     const c10::cuda::CUDAStreamGuard guard(stream);
 
