@@ -1,6 +1,5 @@
 #pragma once
 #include <torch/extension.h>
-#include <vector>
 
 at::Tensor xielu_forward(const at::Tensor &x, const at::Tensor &alpha_p, const at::Tensor &alpha_n, double beta, double eps);
 
